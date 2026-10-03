@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.vscode/
+.idea/
+
+# Documents you convert while trying things out
+*.pdf
+*.doc
+*.docx
+~$*

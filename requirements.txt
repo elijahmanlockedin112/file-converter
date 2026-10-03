@@ -1,0 +1,2 @@
+pywin32>=306        # talks to Microsoft Word
+tkinterdnd2>=0.4    # optional: drag and drop in the app window
