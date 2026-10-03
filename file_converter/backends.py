@@ -10,9 +10,7 @@ To support a new format, write a backend class and add it to ``BACKENDS``.
 
 from __future__ import annotations
 
-import os
 import shutil
-import signal
 import tempfile
 import threading
 import uuid
@@ -97,6 +95,7 @@ class WordToPdf:
             self._open_and_export(word, src, dst)
         finally:
             watchdog.cancel()
+            watchdog.join()  # if it fired, wait until Word has fully exited
 
     def _open_and_export(self, word, src: Path, dst: Path) -> None:
         import pywintypes
@@ -140,12 +139,25 @@ class WordToPdf:
 
     def _kill_word(self) -> None:
         """Runs on the watchdog thread when a file takes too long."""
+        import pywintypes
+        import win32api
+        import win32con
+        import win32event
+
         self._timed_out = True
-        if self._pid is not None:
+        if self._pid is None:
+            return
+        try:
+            access = win32con.PROCESS_TERMINATE | win32con.SYNCHRONIZE
+            handle = win32api.OpenProcess(access, False, self._pid)
             try:
-                os.kill(self._pid, signal.SIGTERM)  # TerminateProcess on Windows
-            except OSError:
-                pass
+                win32api.TerminateProcess(handle, 1)
+                # Wait for it to really exit, so it lets go of its open files.
+                win32event.WaitForSingleObject(handle, 10_000)
+            finally:
+                win32api.CloseHandle(handle)
+        except pywintypes.error:
+            pass  # already gone
 
     def _ensure_word(self):
         """Return a running Word instance, (re)starting it if needed."""
